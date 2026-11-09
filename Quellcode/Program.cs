@@ -54,7 +54,7 @@ static class Program {
   Ui.Init();
   if(file=="--preview")return Preview();
   try {Application.Run(new MainForm(file));}
-  catch(Exception e){MessageBox.Show(e.Message,AppInfo.Product,MessageBoxButtons.OK,MessageBoxIcon.Error);return 1;}
+  catch(Exception e){MessageBox.Show(e.Message,AppInfo.FullName,MessageBoxButtons.OK,MessageBoxIcon.Error);return 1;}
   return 0;
  }
 
@@ -111,7 +111,8 @@ static class Program {
    if(connect)System.Diagnostics.Process.Start("mstsc.exe","\""+rdp.Path+"\"");
    return 0;
   } catch(Exception e) {
-   MessageBox.Show(e.Message,AppInfo.Product,MessageBoxButtons.OK,MessageBoxIcon.Error);
+   Ui.Init(); // Meldung im Programmdesign
+   MessageBox.Show(e.Message,AppInfo.FullName,MessageBoxButtons.OK,MessageBoxIcon.Error);
    return 1;
   }
  }

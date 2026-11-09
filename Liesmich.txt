@@ -42,7 +42,6 @@ Der Hauptmonitor ist der Monitor, auf dem in der Remote-Sitzung Taskleiste und
 Startmenü erscheinen. Rechtsklick auf einen Monitor (oder Taste H) legt ihn fest.
 Ohne Festlegung: lokaler Primärmonitor, falls ausgewählt, sonst der linke.
 "Primär" kennzeichnet den Hauptbildschirm deines lokalen Windows.
-"IDs prüfen" zeigt die Monitor-IDs von mstsc (mstsc /l) zum Abgleich.
 
 Kommandozeile
 "reitzner RDP Pilot.exe" Test.rdp 2,1            Monitore setzen (erster = Hauptmonitor)
@@ -69,6 +68,9 @@ Gespeichert wird das unter %LOCALAPPDATA%\reitzner RDP Pilot\Einstellungen.ini.
 Ohne Internet bleibt alles wie gewohnt, es erscheint keine Fehlermeldung.
 
 Versionen
+1.31  Meldungen und Rückfragen im Design des Programms (hell/dunkel) statt im
+      Windows-Standardfenster
+      "Original wiederherstellen" steht jetzt rechts, getrennt von den übrigen Knöpfen
 1.28  Behoben: Bei mehreren Monitoren startete die Sitzung teils auf falschen oder
       nur auf einem Monitor (Monitor-IDs jetzt in der Reihenfolge von mstsc)
 1.18  Prüfung auf Updates über GitHub mit Selbst-Update (Hinweis oben im Fenster,

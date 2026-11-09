@@ -71,7 +71,8 @@ public class MainForm:Form {
  ModernCheck backupCheck=new ModernCheck("Sicherung erstellen (.rdp.bak)");
  InfoBar info=new InfoBar();
  Label connectionInfo=new Label(),selectionInfo=new Label();
- ModernButton connect,save,start,restore,openFolder,refresh,browse,ids;
+ ModernButton connect,save,start,restore,openFolder,refresh,browse;
+ FaintLink ids;
 
  public MainForm(string startFile):this(startFile,null){}
 
@@ -92,8 +93,7 @@ public class MainForm:Form {
   openFolder=new ModernButton("Ordner öffnen",ButtonKind.Secondary,"");
   refresh=new ModernButton("Aktualisieren",ButtonKind.Ghost,"");
   browse=new ModernButton("Andere Datei …",ButtonKind.Ghost,"");
-  ids=new ModernButton("IDs prüfen",ButtonKind.Ghost,"");
-  foreach(var b in new[]{refresh,browse,ids}){b.Height=Ui.Px(32);b.Margin=new Padding(0);}
+  foreach(var b in new[]{refresh,browse}){b.Height=Ui.Px(32);b.Margin=new Padding(0);}
   openFolder.Margin=new Padding(0);
 
   // Kopfbereich
@@ -112,7 +112,9 @@ public class MainForm:Form {
 
   // Karte Monitore
   var monitorCard=new Card{Dock=DockStyle.Fill,Margin=new Padding(0,0,0,Ui.Px(14)),Padding=new Padding(Ui.Px(8))};
-  var monitorHead=MakeHead("Monitore",selectionInfo,new[]{ids});
+  // Unauffälliger Link für den Support: Monitor-IDs der Remotedesktopverbindung
+  ids=new FaintLink("IDs anzeigen");
+  var monitorHead=MakeHead("Monitore",selectionInfo,new Control[]{ids});
   var monitorFoot=new Panel{Dock=DockStyle.Bottom,Height=Ui.Px(44),BackColor=Ui.Surface,Padding=new Padding(Ui.Px(10),0,0,Ui.Px(4))};
   resolution.Location=new Point(Ui.Px(10),(Ui.Px(40)-resolution.Height)/2);
   resolution.Checked=true;
@@ -127,8 +129,14 @@ public class MainForm:Form {
 
   // Aktionen
   var actions=new FlowLayoutPanel{Dock=DockStyle.Fill,Margin=new Padding(0,0,0,Ui.Px(14)),Padding=new Padding(0),BackColor=Ui.Bg,WrapContents=false};
-  var separator=new ActionSeparator();
-  actions.Controls.AddRange(new Control[]{connect,save,start,separator,restore});
+  actions.Controls.AddRange(new Control[]{connect,save,start,restore});
+  // "Original wiederherstellen" rechtsbündig, getrennt von den Hauptaktionen links
+  EventHandler alignRestore=(s,e)=>{
+   int used=0;
+   foreach(var b in new[]{connect,save,start})used+=b.Width+b.Margin.Horizontal;
+   restore.Margin=new Padding(Math.Max(Ui.Px(8),actions.ClientSize.Width-used-restore.Width),0,0,0);
+  };
+  actions.Resize+=alignRestore;restore.SizeChanged+=alignRestore;
 
   info.Dock=DockStyle.Fill;info.Margin=new Padding(0,0,0,Ui.Px(10));
 
@@ -179,12 +187,12 @@ public class MainForm:Form {
   map.SelectionChanged+=(s,e)=>UpdateState(true);
   refresh.Click+=(s,e)=>{ReloadList(CurrentPath());Status("Ordner neu eingelesen: "+paths.Count+" Verbindung(en).",InfoKind.Info);};
   browse.Click+=(s,e)=>Browse();
-  ids.Click+=(s,e)=>Run("mstsc.exe","/l");
   openFolder.Click+=(s,e)=>Run("explorer.exe",Quote(folder));
   save.Click+=(s,e)=>SaveCurrent(false);
   connect.Click+=(s,e)=>SaveCurrent(true);
   start.Click+=(s,e)=>{if(current!=null)Run("mstsc.exe",Quote(current.Path));};
   restore.Click+=(s,e)=>RestoreBackup();
+  ids.Click+=(s,e)=>ShowIds();
   DragEnter+=(s,e)=>{if(e.Data.GetDataPresent(DataFormats.FileDrop))e.Effect=DragDropEffects.Copy;};
   DragDrop+=(s,e)=>{
    var files=e.Data.GetData(DataFormats.FileDrop) as string[];
@@ -194,10 +202,10 @@ public class MainForm:Form {
 
   // Hilfetexte bei Mouseover
   tips=new ToolTip{AutoPopDelay=15000,InitialDelay=400,ReshowDelay=150,ShowAlways=true};
+  tips.SetToolTip(ids,"Monitor-IDs der Remotedesktopverbindung (für den Support)");
   tips.SetToolTip(openFolder,"Öffnet den Ordner mit den Verbindungen im Explorer,\nz.B. um neue .rdp-Dateien hineinzukopieren.");
   tips.SetToolTip(refresh,"Liest den Ordner neu ein, nachdem Verbindungen\nhinzugefügt oder gelöscht wurden.");
   tips.SetToolTip(browse,"Wählt eine .rdp-Datei aus einem anderen Ordner.\nAlternativ die Datei per Drag & Drop auf das Fenster ziehen.");
-  tips.SetToolTip(ids,"Zeigt die Monitor-Nummern der Remotedesktopverbindung (mstsc /l).\nHilfreich, wenn die Sitzung auf einem anderen Monitor landet als erwartet.");
   tips.SetToolTip(select,"Verbindung auswählen. Angezeigt werden alle .rdp-Dateien\naus dem Ordner von RDP Pilot, jeweils mit Server und Benutzer.");
   tips.SetToolTip(resolution,"Nur bei einem Monitor: Die Sitzung übernimmt\ndie Auflösung des gewählten Bildschirms.");
   tips.SetToolTip(backupCheck,"Sichert vor dem Speichern die unveränderte Verbindung als .rdp.bak.\nEine vorhandene Sicherung bleibt unverändert, damit das Original erhalten bleibt.\nStandardmäßig ausgeschaltet.");
@@ -215,7 +223,7 @@ public class MainForm:Form {
   if(paths.Count==0)Status("Keine .rdp-Dateien im Ordner gefunden. Lege deine Verbindungen neben die EXE oder wähle über „Andere Datei …“ eine aus.",InfoKind.Warning);
  }
 
- Panel MakeHead(string title,Label detail,ModernButton[] buttons) {
+ Panel MakeHead(string title,Label detail,Control[] buttons) {
   var head=new Panel{Dock=DockStyle.Top,Height=Ui.Px(44),BackColor=Ui.Surface};
   var titleLabel=new Label{Text=title,AutoSize=true,Font=Ui.UiSemibold,ForeColor=Ui.TextColor,BackColor=Ui.Surface};
   detail.AutoSize=true;detail.Font=Ui.SmallFont;detail.ForeColor=Ui.Muted;detail.Tag="muted";detail.BackColor=Ui.Surface;detail.UseMnemonic=false;
@@ -243,6 +251,21 @@ public class MainForm:Form {
  }
 
  static string Quote(string s){return "\""+s+"\"";}
+
+ // Support: Monitor-IDs der Remotedesktopverbindung, wie das Programm sie ermittelt,
+ // auf Wunsch zum Vergleich die Anzeige von mstsc /l
+ void ShowIds() {
+  var lines=new List<string>();
+  foreach(var m in Monitors.Load().OrderBy(x=>x.Id)) {
+   var b=m.Bounds;
+   lines.Add("ID "+m.Id+" = Monitor "+m.Nr+(m.Primary?" (primär)":"")+":  "+b.Width+" × "+b.Height+
+    "  ("+b.Left+", "+b.Top+" bis "+(b.Right-1)+", "+(b.Bottom-1)+")");
+  }
+  var answer=MessageBox.Show(this,"Monitor-IDs der Remotedesktopverbindung (selectedmonitors):\n\n"+String.Join("\n",lines)+
+   "\n\nZum Vergleich die Anzeige der Remotedesktopverbindung (mstsc /l) öffnen?",
+   AppInfo.FullName,MessageBoxButtons.YesNo,MessageBoxIcon.Information,MessageBoxDefaultButton.Button2);
+  if(answer==DialogResult.Yes)Run("mstsc.exe","/l");
+ }
 
  void Run(string file,string args) {
   try {Process.Start(file,args);}
@@ -353,7 +376,7 @@ public class MainForm:Form {
   var info=update;
   string text=AppInfo.FullName+" wird beendet, auf Version "+info.Version+" aktualisiert und neu gestartet.\r\n"+
    "Einstellungen und Verbindungen bleiben erhalten.";
-  if(MessageBox.Show(this,text+"\r\n\r\nJetzt aktualisieren?","Update",MessageBoxButtons.YesNo,MessageBoxIcon.Question)!=DialogResult.Yes)return;
+  if(MessageBox.Show(this,text+"\r\n\r\nJetzt aktualisieren?",AppInfo.FullName,MessageBoxButtons.YesNo,MessageBoxIcon.Question)!=DialogResult.Yes)return;
   installing=true;
   foreach(var b in new[]{updateBar.Install,updateBar.Page,updateBar.Later})b.Enabled=false;
   string barText=updateBar.Text;
@@ -362,7 +385,7 @@ public class MainForm:Form {
    await UpdateCheck.Install(info,percent=>BeginInvoke(new Action(()=>updateBar.Text="Lade Version "+info.Version+" … "+percent+" %")));
    Close(); // das Skript wartet auf das Programmende, ersetzt die EXE und startet neu
   } catch(Exception ex) {
-   MessageBox.Show(this,ex.Message,"Update",MessageBoxButtons.OK,MessageBoxIcon.Warning);
+   MessageBox.Show(this,"Das Update ist fehlgeschlagen: "+ex.Message,AppInfo.FullName,MessageBoxButtons.OK,MessageBoxIcon.Warning);
    updateBar.Text=barText;
    updateBar.Page.Enabled=true;
    updateBar.Later.Enabled=true;
@@ -467,7 +490,7 @@ public class MainForm:Form {
   var sel=map.Selection;
   if(sel.Count==0){Status("Bitte mindestens einen Monitor auswählen.",InfoKind.Warning);return;}
   if(!Monitors.Adjacent(sel)) {
-   var answer=MessageBox.Show(this,"Die gewählten Monitore liegen nicht direkt aneinander.\nDie Remotedesktopverbindung kann das ablehnen.\n\nTrotzdem speichern?",AppInfo.Product,MessageBoxButtons.YesNo,MessageBoxIcon.Warning);
+   var answer=MessageBox.Show(this,"Die gewählten Monitore liegen nicht direkt aneinander.\nDie Remotedesktopverbindung kann das ablehnen.\n\nTrotzdem speichern?",AppInfo.FullName,MessageBoxButtons.YesNo,MessageBoxIcon.Warning,MessageBoxDefaultButton.Button2);
    if(answer!=DialogResult.Yes)return;
   }
   bool backupCreated=false;
@@ -494,7 +517,7 @@ public class MainForm:Form {
   if(current==null)return;
   string backup=current.Path+".bak";
   if(!File.Exists(backup))return;
-  var answer=MessageBox.Show(this,"Die ursprüngliche Datei aus der Sicherung wiederherstellen?\n\n"+backup,AppInfo.Product,MessageBoxButtons.YesNo,MessageBoxIcon.Question);
+  var answer=MessageBox.Show(this,"Die aktuelle Datei wird durch die Sicherung ersetzt:\n"+Path.GetFileName(backup)+"\n\nUrsprüngliche Datei wiederherstellen?",AppInfo.FullName,MessageBoxButtons.YesNo,MessageBoxIcon.Question,MessageBoxDefaultButton.Button2);
   if(answer!=DialogResult.Yes)return;
   try {
    File.Copy(backup,current.Path,true);
@@ -565,14 +588,23 @@ public class HelpSteps:Control {
  }
 }
 
-public class ActionSeparator:Control {
- public ActionSeparator() {
-  SetStyle(ControlStyles.UserPaint|ControlStyles.AllPaintingInWmPaint|ControlStyles.OptimizedDoubleBuffer,true);
-  BackColor=Ui.Bg;Width=Ui.Px(25);Height=Ui.Px(38);Margin=new Padding(0,0,Ui.Px(8),0);
+// Sehr dezenter Textlink (kaum sichtbar), z. B. für Support-Funktionen
+public class FaintLink:Control {
+ bool hover;
+ public FaintLink(string text) {
+  SetStyle(ControlStyles.UserPaint|ControlStyles.AllPaintingInWmPaint|ControlStyles.OptimizedDoubleBuffer|ControlStyles.ResizeRedraw,true);
+  Text=text;Font=Ui.SmallFont;Cursor=Cursors.Hand;TabStop=false;Margin=new Padding(0);
+  Size=new Size(TextRenderer.MeasureText(text,Font,Size.Empty,TextFormatFlags.NoPadding).Width+Ui.Px(12),Ui.Px(24));
  }
+ protected override void OnMouseEnter(EventArgs e){base.OnMouseEnter(e);hover=true;Invalidate();}
+ protected override void OnMouseLeave(EventArgs e){base.OnMouseLeave(e);hover=false;Invalidate();}
  protected override void OnPaint(PaintEventArgs e) {
-  e.Graphics.Clear(BackColor);
-  using(var pen=new Pen(Ui.Border)) e.Graphics.DrawLine(pen,Width/2,Ui.Px(6),Width/2,Height-Ui.Px(6));
+  Color back=Parent!=null?Parent.BackColor:Ui.Surface;
+  e.Graphics.Clear(back);
+  // Ruhezustand fast in Hintergrundfarbe, bei Mouseover etwas deutlicher
+  Color fore=Ui.Blend(back,Ui.Muted,hover?0.6f:0.18f);
+  TextRenderer.DrawText(e.Graphics,Text,Font,ClientRectangle,fore,
+   TextFormatFlags.HorizontalCenter|TextFormatFlags.VerticalCenter|TextFormatFlags.SingleLine|TextFormatFlags.NoPrefix|TextFormatFlags.NoPadding);
  }
 }
 
