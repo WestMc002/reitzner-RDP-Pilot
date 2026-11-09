@@ -114,6 +114,7 @@ public class MainForm:Form {
   var monitorCard=new Card{Dock=DockStyle.Fill,Margin=new Padding(0,0,0,Ui.Px(14)),Padding=new Padding(Ui.Px(8))};
   // Unauffälliger Link für den Support: Monitor-IDs der Remotedesktopverbindung
   ids=new FaintLink("IDs anzeigen");
+  ids.AlignTo(browse);
   var monitorHead=MakeHead("Monitore",selectionInfo,new Control[]{ids});
   var monitorFoot=new Panel{Dock=DockStyle.Bottom,Height=Ui.Px(44),BackColor=Ui.Surface,Padding=new Padding(Ui.Px(10),0,0,Ui.Px(4))};
   resolution.Location=new Point(Ui.Px(10),(Ui.Px(40)-resolution.Height)/2);
@@ -201,7 +202,7 @@ public class MainForm:Form {
   };
 
   // Hilfetexte bei Mouseover
-  tips=new ToolTip{AutoPopDelay=15000,InitialDelay=400,ReshowDelay=150,ShowAlways=true};
+  tips=new ModernToolTip{AutoPopDelay=15000,InitialDelay=400,ReshowDelay=150,ShowAlways=true};
   tips.SetToolTip(ids,"Monitor-IDs der Remotedesktopverbindung (für den Support)");
   tips.SetToolTip(openFolder,"Öffnet den Ordner mit den Verbindungen im Explorer,\nz.B. um neue .rdp-Dateien hineinzukopieren.");
   tips.SetToolTip(refresh,"Liest den Ordner neu ein, nachdem Verbindungen\nhinzugefügt oder gelöscht wurden.");
@@ -591,20 +592,60 @@ public class HelpSteps:Control {
 // Sehr dezenter Textlink (kaum sichtbar), z. B. für Support-Funktionen
 public class FaintLink:Control {
  bool hover;
+ int rightInset;
+ ModernButton alignButton;
+ const TextFormatFlags Flags=TextFormatFlags.NoPrefix|TextFormatFlags.SingleLine|TextFormatFlags.NoPadding;
  public FaintLink(string text) {
   SetStyle(ControlStyles.UserPaint|ControlStyles.AllPaintingInWmPaint|ControlStyles.OptimizedDoubleBuffer|ControlStyles.ResizeRedraw,true);
   Text=text;Font=Ui.SmallFont;Cursor=Cursors.Hand;TabStop=false;Margin=new Padding(0);
-  Size=new Size(TextRenderer.MeasureText(text,Font,Size.Empty,TextFormatFlags.NoPadding).Width+Ui.Px(12),Ui.Px(24));
+  rightInset=Ui.Px(14);
+  Size=new Size(TextRenderer.MeasureText(text,Font,Size.Empty,Flags).Width+Ui.Px(48),Ui.Px(24));
+ }
+ // Textende bündig mit dem sichtbaren Textende eines Knopfs darüber (gleiche rechte Kante vorausgesetzt).
+ // Gemessen wird an den tatsächlich gezeichneten Pixeln, weil Textränder und Zeichen wie „…“ sonst versetzen.
+ public void AlignTo(ModernButton button){alignButton=button;}
+ void Align() {
+  var button=alignButton;alignButton=null;
+  try {
+   if(button.Width<=0||button.Height<=0)return;
+   int buttonGap;
+   using(var bmp=new Bitmap(button.Width,button.Height)) {
+    button.DrawToBitmap(bmp,new Rectangle(0,0,bmp.Width,bmp.Height));
+    int ink=InkRight(bmp);
+    if(ink<0)return;
+    buttonGap=bmp.Width-1-ink;
+   }
+   int bearing;
+   using(var bmp=new Bitmap(Width,Height))
+   using(var g=Graphics.FromImage(bmp)) {
+    g.Clear(Color.White);
+    TextRenderer.DrawText(g,Text,Font,new Rectangle(0,0,Width,Height),Color.Black,Flags|TextFormatFlags.Right|TextFormatFlags.VerticalCenter);
+    int ink=InkRight(bmp);
+    if(ink<0)return;
+    bearing=Width-1-ink;
+   }
+   rightInset=Math.Max(0,Math.Min(Width-Ui.Px(8),buttonGap-bearing));
+  } catch {}
+ }
+ static int InkRight(Bitmap bmp) {
+  Color bg=bmp.GetPixel(0,0);
+  for(int x=bmp.Width-1;x>=0;x--)
+   for(int y=0;y<bmp.Height;y++) {
+    Color c=bmp.GetPixel(x,y);
+    if(Math.Abs(c.R-bg.R)+Math.Abs(c.G-bg.G)+Math.Abs(c.B-bg.B)>60)return x;
+   }
+  return -1;
  }
  protected override void OnMouseEnter(EventArgs e){base.OnMouseEnter(e);hover=true;Invalidate();}
  protected override void OnMouseLeave(EventArgs e){base.OnMouseLeave(e);hover=false;Invalidate();}
  protected override void OnPaint(PaintEventArgs e) {
+  if(alignButton!=null)Align();
   Color back=Parent!=null?Parent.BackColor:Ui.Surface;
   e.Graphics.Clear(back);
   // Ruhezustand fast in Hintergrundfarbe, bei Mouseover etwas deutlicher
   Color fore=Ui.Blend(back,Ui.Muted,hover?0.6f:0.18f);
-  TextRenderer.DrawText(e.Graphics,Text,Font,ClientRectangle,fore,
-   TextFormatFlags.HorizontalCenter|TextFormatFlags.VerticalCenter|TextFormatFlags.SingleLine|TextFormatFlags.NoPrefix|TextFormatFlags.NoPadding);
+  TextRenderer.DrawText(e.Graphics,Text,Font,new Rectangle(0,0,Width-rightInset,Height),fore,
+   Flags|TextFormatFlags.Right|TextFormatFlags.VerticalCenter);
  }
 }
 

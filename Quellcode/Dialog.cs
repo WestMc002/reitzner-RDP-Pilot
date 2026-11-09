@@ -159,6 +159,36 @@ public class MsgDialog:Form {
  }
 }
 
+// Tooltip im Programmdesign: Kartenfarbe, 1 px Rand, Segoe UI 9 pt, Innenabstand 10 × 6, Umbruch bei 400
+public class ModernToolTip:ToolTip {
+ const TextFormatFlags Flags=TextFormatFlags.WordBreak|TextFormatFlags.NoPrefix|TextFormatFlags.TextBoxControl;
+ Font font;
+ public ModernToolTip() {
+  OwnerDraw=true;
+  Popup+=OnTipPopup;
+  Draw+=OnTipDraw;
+ }
+ Font TipFont{get{if(font==null)font=new Font("Segoe UI",9f);return font;}}
+ void OnTipPopup(object sender,PopupEventArgs e) {
+  string text=e.AssociatedControl!=null?GetToolTip(e.AssociatedControl):null;
+  if(String.IsNullOrEmpty(text)){e.Cancel=true;return;}
+  var size=TextRenderer.MeasureText(text,TipFont,new Size(Ui.Px(400),0),Flags);
+  e.ToolTipSize=new Size(size.Width+Ui.Px(20)+2,size.Height+Ui.Px(12)+2);
+ }
+ void OnTipDraw(object sender,DrawToolTipEventArgs e) {
+  var g=e.Graphics;
+  var r=e.Bounds;
+  using(var back=new SolidBrush(Ui.Surface)) g.FillRectangle(back,r);
+  using(var pen=new Pen(Ui.Border)) g.DrawRectangle(pen,r.X,r.Y,r.Width-1,r.Height-1);
+  var text=new Rectangle(r.X+1+Ui.Px(10),r.Y+1+Ui.Px(6),r.Width-2-Ui.Px(20),r.Height-2-Ui.Px(12));
+  TextRenderer.DrawText(g,e.ToolTipText,TipFont,text,Ui.TextColor,Flags);
+ }
+ protected override void Dispose(bool disposing) {
+  if(disposing&&font!=null){font.Dispose();font=null;}
+  base.Dispose(disposing);
+ }
+}
+
 // Symbol als gefüllter Kreis mit weißem Zeichen: Frage/Info in Akzentfarbe, Warnung orange, Fehler rot
 class MsgIcon:Control {
  readonly MessageBoxIcon icon;

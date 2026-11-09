@@ -68,6 +68,7 @@ Gespeichert wird das unter %LOCALAPPDATA%\reitzner RDP Pilot\Einstellungen.ini.
 Ohne Internet bleibt alles wie gewohnt, es erscheint keine Fehlermeldung.
 
 Versionen
+1.34  Hinweise beim Überfahren mit der Maus (Tooltips) im Design des Programms
 1.31  Meldungen und Rückfragen im Design des Programms (hell/dunkel) statt im
       Windows-Standardfenster
       "Original wiederherstellen" steht jetzt rechts, getrennt von den übrigen Knöpfen

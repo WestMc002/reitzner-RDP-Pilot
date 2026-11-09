@@ -17,7 +17,7 @@ public class MonitorMap:Control {
  List<MonitorInfo> monitors=new List<MonitorInfo>();
  readonly HashSet<int> selected=new HashSet<int>();
  readonly Dictionary<int,RectangleF> rects=new Dictionary<int,RectangleF>();
- readonly ToolTip tip=new ToolTip{AutoPopDelay=15000,InitialDelay=400,ReshowDelay=150};
+ readonly ToolTip tip=new ModernToolTip{AutoPopDelay=15000,InitialDelay=400,ReshowDelay=150};
  int hover=-1,focusNr=1;
  public event EventHandler SelectionChanged;
 

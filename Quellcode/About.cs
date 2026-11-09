@@ -85,7 +85,7 @@ public class AboutDialog:Form {
   var table=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=2,BackColor=Ui.Surface};
   table.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,Ui.Px(118)));
   table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));
-  var tip=new ToolTip();
+  var tip=new ModernToolTip();
   string built;
   try {built=File.GetLastWriteTime(Application.ExecutablePath).ToString("dd.MM.yyyy");} catch {built="-";}
   AddRow(table,tip,"Entwickler",AppInfo.Company);
@@ -147,7 +147,7 @@ public class AboutDialog:Form {
   var check=new ModernButton("Jetzt prüfen",ButtonKind.Secondary,Glyphs.Refresh);
   var install=new ModernButton("Aktualisieren",ButtonKind.Primary,Glyphs.Download);
   var page=new ModernButton("Release-Seite",ButtonKind.Secondary,Glyphs.Link);
-  var tip=new ToolTip();
+  var tip=new ModernToolTip();
   tip.SetToolTip(install,"Programm beenden, auf die neue Version aktualisieren und neu starten");
   tip.SetToolTip(page,"Öffnet die Release-Seite auf GitHub");
   foreach(var b in new[]{check,install,page}) {
