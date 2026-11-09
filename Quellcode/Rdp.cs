@@ -9,6 +9,7 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Windows.Forms;
 
 namespace RDPilot {
@@ -35,6 +36,14 @@ public static class Monitors {
   var list=new List<MonitorInfo>();
   for(int i=0;i<all.Length;i++)
    list.Add(new MonitorInfo{Id=i,Name=all[i].DeviceName.TrimStart('\\','.'),Bounds=all[i].Bounds,Primary=all[i].Primary});
+  // Die Monitor-IDs von mstsc entsprechen nicht der Reihenfolge, in der Windows die Monitore meldet,
+  // sondern der Nummer des Anzeigegeräts (siehe MstscIds).
+  var ids=MstscIds.Get(all);
+  if(ids!=null)
+   foreach(var m in list) {
+    int id;
+    if(ids.TryGetValue(m.Bounds.X+","+m.Bounds.Y,out id))m.Id=id;
+   }
   list=list.OrderBy(m=>m.Bounds.X).ThenBy(m=>m.Bounds.Y).ToList();
   for(int i=0;i<list.Count;i++)list[i].Nr=i+1;
   return list;
@@ -74,6 +83,26 @@ public static class Monitors {
 
  public static string Describe(IList<MonitorInfo> selection) {
   return String.Join(" + ",selection.OrderBy(m=>m.Nr).Select(m=>m.Nr.ToString()).ToArray());
+ }
+}
+
+// Monitor-IDs der Remotedesktopverbindung: mstsc zählt die Monitore in der Reihenfolge der Anzeigegeräte
+// (\\.\DISPLAY1, DISPLAY2 …), nicht in der Reihenfolge, in der Windows sie meldet. Kleinste DISPLAY-Nummer = ID 0 usw.
+// Ermittelt an einem Rechner mit vier Monitoren durch Vergleich mit "mstsc /l". Das Programm ruft mstsc dafür
+// nicht auf (unter Windows 11 lässt sich die Liste von mstsc nicht auslesen und das Fenster würde aufblitzen).
+static class MstscIds {
+ // Schlüssel "X,Y" (linke obere Ecke) -> mstsc-ID; null, wenn ein Gerätename keine DISPLAY-Nummer hat
+ public static Dictionary<string,int> Get(Screen[] screens) {
+  var numbered=new List<KeyValuePair<int,Screen>>();
+  foreach(var s in screens) {
+   var m=Regex.Match(s.DeviceName??"",@"DISPLAY(\d+)",RegexOptions.IgnoreCase);
+   if(!m.Success)return null;
+   numbered.Add(new KeyValuePair<int,Screen>(Int32.Parse(m.Groups[1].Value),s));
+  }
+  var map=new Dictionary<string,int>();
+  int id=0;
+  foreach(var entry in numbered.OrderBy(x=>x.Key))map[entry.Value.Bounds.X+","+entry.Value.Bounds.Y]=id++;
+  return map;
  }
 }
 

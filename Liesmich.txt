@@ -69,6 +69,8 @@ Gespeichert wird das unter %LOCALAPPDATA%\reitzner RDP Pilot\Einstellungen.ini.
 Ohne Internet bleibt alles wie gewohnt, es erscheint keine Fehlermeldung.
 
 Versionen
+1.28  Behoben: Bei mehreren Monitoren startete die Sitzung teils auf falschen oder
+      nur auf einem Monitor (Monitor-IDs jetzt in der Reihenfolge von mstsc)
 1.18  Prüfung auf Updates über GitHub mit Selbst-Update (Hinweis oben im Fenster,
       Stand und "Automatisch prüfen" im Info-Fenster)
 1.14  Neues Programmsymbol
