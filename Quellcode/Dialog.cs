@@ -159,12 +159,15 @@ public class MsgDialog:Form {
  }
 }
 
-// Tooltip im Programmdesign: Kartenfarbe, 1 px Rand, Segoe UI 9 pt, Innenabstand 10 × 6, Umbruch bei 400
+// Tooltip im Programmdesign: Kartenfarbe, 1 px Rand, Segoe UI 9 pt, Innenabstand 8 × 5, Umbruch bei 400, 15 s sichtbar.
+// Text mit NoPadding und einem Graphics messen und zeichnen, sonst rechnet Windows einen Zuschlag ein
+// und der Rand rechts wird größer als links.
 public class ModernToolTip:ToolTip {
- const TextFormatFlags Flags=TextFormatFlags.WordBreak|TextFormatFlags.NoPrefix|TextFormatFlags.TextBoxControl;
+ const TextFormatFlags Flags=TextFormatFlags.WordBreak|TextFormatFlags.NoPrefix|TextFormatFlags.TextBoxControl|TextFormatFlags.NoPadding;
  Font font;
  public ModernToolTip() {
   OwnerDraw=true;
+  AutoPopDelay=15000;
   Popup+=OnTipPopup;
   Draw+=OnTipDraw;
  }
@@ -172,15 +175,17 @@ public class ModernToolTip:ToolTip {
  void OnTipPopup(object sender,PopupEventArgs e) {
   string text=e.AssociatedControl!=null?GetToolTip(e.AssociatedControl):null;
   if(String.IsNullOrEmpty(text)){e.Cancel=true;return;}
-  var size=TextRenderer.MeasureText(text,TipFont,new Size(Ui.Px(400),0),Flags);
-  e.ToolTipSize=new Size(size.Width+Ui.Px(20)+2,size.Height+Ui.Px(12)+2);
+  Size size;
+  using(var g=Graphics.FromHwnd(IntPtr.Zero)) size=TextRenderer.MeasureText(g,text,TipFont,new Size(Ui.Px(400),0),Flags);
+  // 1 px Rand je Seite, Innenabstand 8 × 5, 1 px Reserve in der Breite
+  e.ToolTipSize=new Size(size.Width+1+Ui.Px(16)+2,size.Height+Ui.Px(10)+2);
  }
  void OnTipDraw(object sender,DrawToolTipEventArgs e) {
   var g=e.Graphics;
   var r=e.Bounds;
   using(var back=new SolidBrush(Ui.Surface)) g.FillRectangle(back,r);
   using(var pen=new Pen(Ui.Border)) g.DrawRectangle(pen,r.X,r.Y,r.Width-1,r.Height-1);
-  var text=new Rectangle(r.X+1+Ui.Px(10),r.Y+1+Ui.Px(6),r.Width-2-Ui.Px(20),r.Height-2-Ui.Px(12));
+  var text=new Rectangle(r.X+1+Ui.Px(8),r.Y+1+Ui.Px(5),r.Width-2-Ui.Px(16),r.Height-2-Ui.Px(10));
   TextRenderer.DrawText(g,e.ToolTipText,TipFont,text,Ui.TextColor,Flags);
  }
  protected override void Dispose(bool disposing) {

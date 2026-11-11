@@ -75,6 +75,7 @@ Gespeichert wird das unter %LOCALAPPDATA%\reitzner RDP Pilot\Einstellungen.ini.
 Ohne Internet bleibt alles wie gewohnt, es erscheint keine Fehlermeldung.
 
 Versionen
+1.36  Hinweise beim Überfahren mit der Maus kompakter und 15 Sekunden sichtbar
 1.35  Neu: "Identifizieren" zeigt auf jedem Bildschirm seine Nummer
       Neu: geänderte Bildschirme und neue/gelöschte Verbindungen im Ordner werden
       von selbst erkannt ("Aktualisieren" entfällt, F5 liest von Hand neu ein)
