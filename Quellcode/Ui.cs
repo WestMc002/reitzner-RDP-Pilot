@@ -553,7 +553,19 @@ public class ModernSelect:Control {
   menu.MinimumSize=new Size(Width,0);
   menu.Closed+=(s,a)=>{open=false;Invalidate();BeginInvoke(new Action(menu.Dispose));};
   open=true;Invalidate();
-  menu.Show(this,new Point(0,Height+Ui.Px(4)));
+  // Unter dem Auswahlfeld öffnen; reicht der Platz auf diesem Bildschirm nicht, nach oben aufklappen.
+  // Windows schiebt ein Menü sonst über das Auswahlfeld oder auf einen anderen Bildschirm.
+  var area=Screen.FromControl(this).WorkingArea;
+  var origin=PointToScreen(Point.Empty);
+  int menuHeight=menu.GetPreferredSize(Size.Empty).Height;
+  int below=origin.Y+Height+Ui.Px(4);
+  bool up=below+menuHeight>area.Bottom&&origin.Y-Ui.Px(4)-menuHeight>=area.Top;
+  // Waagrecht auf dem Bildschirm des Auswahlfelds halten (Fenster über zwei Bildschirme)
+  int x=0;
+  if(origin.X+Width>area.Right)x=Math.Max(area.Left,area.Right-Width)-origin.X;
+  if(origin.X+x<area.Left)x=area.Left-origin.X;
+  if(up)menu.Show(this,new Point(x,-Ui.Px(4)),ToolStripDropDownDirection.AboveRight);
+  else menu.Show(this,new Point(x,Height+Ui.Px(4)),ToolStripDropDownDirection.BelowRight);
   return menu;
  }
  protected override void OnPaint(PaintEventArgs e) {
