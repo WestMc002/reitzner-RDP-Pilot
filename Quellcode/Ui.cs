@@ -538,12 +538,17 @@ public class ModernSelect:Control {
    menu.DropShadowEnabled=false;
    menu.HandleCreated+=(s,a)=>Native.RoundCorners(menu.Handle);
   }
+  // Windows wendet hier weder Padding.Top noch Padding.Bottom an (im Screenshot nachgemessen):
+  // je eine unsichtbare Leerzeile oben und unten, damit der Abstand zum Rahmen gleich ist
+  menu.Items.Add(new MenuSpacer(Width-Ui.Px(10)));
   for(int i=0;i<Items.Count;i++) {
    var item=new SelectMenuItem(Items[i],i==selected,Width-Ui.Px(10));
    int index=i;
    item.Click+=(s,a)=>SelectedIndex=index;
    menu.Items.Add(item);
   }
+  // Unsichtbare Leerzeile unter dem letzten Eintrag (Globale Richtlinien: MenuSpacer)
+  menu.Items.Add(new MenuSpacer(Width-Ui.Px(10)));
   // Aufklappmenü genauso breit wie das Auswahlfeld
   menu.MinimumSize=new Size(Width,0);
   menu.Closed+=(s,a)=>{open=false;Invalidate();BeginInvoke(new Action(menu.Dispose));};
@@ -604,6 +609,12 @@ public class ModernSelect:Control {
   public override Size GetPreferredSize(Size constrainingSize){return new Size(itemWidth,Ui.Px(40));}
  }
 
+ // Unsichtbare Leerzeile (6 × Skalierung) über dem ersten und unter dem letzten Menüeintrag; nicht anwählbar
+ class MenuSpacer:ToolStripLabel {
+  readonly int itemWidth;
+  public MenuSpacer(int width):base(""){itemWidth=width;Enabled=false;AutoSize=false;Size=new Size(width,Ui.Px(6));Margin=Padding.Empty;Padding=Padding.Empty;}
+  public override Size GetPreferredSize(Size constrainingSize){return new Size(itemWidth,Ui.Px(6));}
+ }
  class SelectRenderer:ToolStripRenderer {
   protected override void OnRenderToolStripBackground(ToolStripRenderEventArgs e) {
    e.Graphics.Clear(Ui.Surface);
