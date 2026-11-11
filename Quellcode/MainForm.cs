@@ -71,14 +71,20 @@ public class MainForm:Form {
  ModernCheck backupCheck=new ModernCheck("Sicherung erstellen (.rdp.bak)");
  InfoBar info=new InfoBar();
  Label connectionInfo=new Label(),selectionInfo=new Label();
- ModernButton connect,save,start,restore,openFolder,refresh,browse;
+ ModernButton connect,save,start,restore,openFolder,browse,identify;
  FaintLink ids;
+ // Ordner und Bildschirme werden überwacht; Änderungen kurz sammeln, dann neu einlesen
+ FileSystemWatcher watcher;
+ readonly System.Windows.Forms.Timer folderTimer=new System.Windows.Forms.Timer{Interval=600};
+ readonly System.Windows.Forms.Timer displayTimer=new System.Windows.Forms.Timer{Interval=1200};
+ readonly bool live; // false bei den Demo-Screenshots: nichts überwachen
 
  public MainForm(string startFile):this(startFile,null){}
 
  // folderOverride: anderer Ordner für die Verbindungen (nur für die Demo-Screenshots)
  public MainForm(string startFile,string folderOverride) {
   folder=folderOverride??AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\');
+  live=folderOverride==null&&!Demo.Active&&Monitors.Override==null;
   monitors=Monitors.Load();
 
   Text=AppInfo.Product+" "+AppInfo.Version;
@@ -91,9 +97,9 @@ public class MainForm:Form {
   start=new ModernButton("Nur verbinden",ButtonKind.Secondary,"");
   restore=new ModernButton("Original wiederherstellen",ButtonKind.Secondary,"");
   openFolder=new ModernButton("Ordner öffnen",ButtonKind.Secondary,"");
-  refresh=new ModernButton("Aktualisieren",ButtonKind.Ghost,"");
   browse=new ModernButton("Andere Datei …",ButtonKind.Ghost,"");
-  foreach(var b in new[]{refresh,browse}){b.Height=Ui.Px(32);b.Margin=new Padding(0);}
+  identify=new ModernButton("Identifizieren",ButtonKind.Ghost,"\uE7F4");
+  foreach(var b in new[]{browse,identify}){b.Height=Ui.Px(32);b.Margin=new Padding(0);}
   openFolder.Margin=new Padding(0);
 
   // Kopfbereich
@@ -104,7 +110,7 @@ public class MainForm:Form {
 
   // Karte Verbindung
   var connectionCard=new Card{Dock=DockStyle.Fill,Margin=new Padding(0,0,0,Ui.Px(14)),Padding=new Padding(Ui.Px(8))};
-  var connectionHead=MakeHead("Verbindung",connectionInfo,new[]{browse,refresh});
+  var connectionHead=MakeHead("Verbindung",connectionInfo,new Control[]{browse});
   var selectHost=new Panel{Dock=DockStyle.Fill,BackColor=Ui.Surface,Padding=new Padding(Ui.Px(8),Ui.Px(2),Ui.Px(8),Ui.Px(8))};
   select.Dock=DockStyle.Top;select.Placeholder="Keine .rdp-Datei gefunden – über „Andere Datei …“ auswählen";
   selectHost.Controls.Add(select);
@@ -114,8 +120,7 @@ public class MainForm:Form {
   var monitorCard=new Card{Dock=DockStyle.Fill,Margin=new Padding(0,0,0,Ui.Px(14)),Padding=new Padding(Ui.Px(8))};
   // Unauffälliger Link für den Support: Monitor-IDs der Remotedesktopverbindung
   ids=new FaintLink("IDs anzeigen");
-  ids.AlignTo(browse);
-  var monitorHead=MakeHead("Monitore",selectionInfo,new Control[]{ids});
+  var monitorHead=MakeHead("Monitore",selectionInfo,new Control[]{identify,ids});
   var monitorFoot=new Panel{Dock=DockStyle.Bottom,Height=Ui.Px(44),BackColor=Ui.Surface,Padding=new Padding(Ui.Px(10),0,0,Ui.Px(4))};
   resolution.Location=new Point(Ui.Px(10),(Ui.Px(40)-resolution.Height)/2);
   resolution.Checked=true;
@@ -186,12 +191,14 @@ public class MainForm:Form {
   // Ereignisse
   select.SelectedIndexChanged+=(s,e)=>LoadCurrent();
   map.SelectionChanged+=(s,e)=>UpdateState(true);
-  refresh.Click+=(s,e)=>{ReloadList(CurrentPath());Status("Ordner neu eingelesen: "+paths.Count+" Verbindung(en).",InfoKind.Info);};
+  identify.Click+=(s,e)=>IdentifyMonitors();
+  folderTimer.Tick+=(s,e)=>{folderTimer.Stop();FolderChanged();};
+  displayTimer.Tick+=(s,e)=>{displayTimer.Stop();ReloadMonitors(true);};
   browse.Click+=(s,e)=>Browse();
   openFolder.Click+=(s,e)=>Run("explorer.exe",Quote(folder));
   save.Click+=(s,e)=>SaveCurrent(false);
   connect.Click+=(s,e)=>SaveCurrent(true);
-  start.Click+=(s,e)=>{if(current!=null)Run("mstsc.exe",Quote(current.Path));};
+  start.Click+=(s,e)=>StartOnly();
   restore.Click+=(s,e)=>RestoreBackup();
   ids.Click+=(s,e)=>ShowIds();
   DragEnter+=(s,e)=>{if(e.Data.GetDataPresent(DataFormats.FileDrop))e.Effect=DragDropEffects.Copy;};
@@ -204,10 +211,10 @@ public class MainForm:Form {
   // Hilfetexte bei Mouseover
   tips=new ModernToolTip{AutoPopDelay=15000,InitialDelay=400,ReshowDelay=150,ShowAlways=true};
   tips.SetToolTip(ids,"Monitor-IDs der Remotedesktopverbindung (für den Support)");
-  tips.SetToolTip(openFolder,"Öffnet den Ordner mit den Verbindungen im Explorer,\nz.B. um neue .rdp-Dateien hineinzukopieren.");
-  tips.SetToolTip(refresh,"Liest den Ordner neu ein, nachdem Verbindungen\nhinzugefügt oder gelöscht wurden.");
+  tips.SetToolTip(openFolder,"Öffnet den Ordner mit den Verbindungen im Explorer,\nz.B. um neue .rdp-Dateien hineinzukopieren.\nNeue Dateien erscheinen von selbst in der Liste.");
+  tips.SetToolTip(identify,"Blendet auf jedem Bildschirm kurz groß seine Nummer ein.\nSo siehst du, welcher Bildschirm hier Monitor 1, 2, 3 … ist.");
   tips.SetToolTip(browse,"Wählt eine .rdp-Datei aus einem anderen Ordner.\nAlternativ die Datei per Drag & Drop auf das Fenster ziehen.");
-  tips.SetToolTip(select,"Verbindung auswählen. Angezeigt werden alle .rdp-Dateien\naus dem Ordner von RDP Pilot, jeweils mit Server und Benutzer.");
+  tips.SetToolTip(select,"Verbindung auswählen. Angezeigt werden alle .rdp-Dateien\naus dem Ordner von RDP Pilot, jeweils mit Server und Benutzer.\nNeue oder gelöschte Dateien werden von selbst erkannt (F5 liest neu ein).");
   tips.SetToolTip(resolution,"Nur bei einem Monitor: Die Sitzung übernimmt\ndie Auflösung des gewählten Bildschirms.");
   tips.SetToolTip(backupCheck,"Sichert vor dem Speichern die unveränderte Verbindung als .rdp.bak.\nEine vorhandene Sicherung bleibt unverändert, damit das Original erhalten bleibt.\nStandardmäßig ausgeschaltet.");
   tips.SetToolTip(connect,"Speichert die Auswahl, startet die Verbindung\nund schließt RDP Pilot.");
@@ -268,6 +275,114 @@ public class MainForm:Form {
   if(answer==DialogResult.Yes)Run("mstsc.exe","/l");
  }
 
+ // --- Bildschirme: identifizieren und Änderungen erkennen -----------------------------
+ // Blendet auf jedem Bildschirm kurz seine Nummer ein
+ void IdentifyMonitors() {
+  if(!live)return;
+  ReloadMonitors(true);
+  IdentifyOverlay.ShowAll(monitors,map.Selection);
+ }
+
+ static bool SameMonitors(IList<MonitorInfo> a,IList<MonitorInfo> b) {
+  if(a.Count!=b.Count)return false;
+  for(int i=0;i<a.Count;i++)
+   if(a[i].Bounds!=b[i].Bounds||a[i].Id!=b[i].Id||a[i].Primary!=b[i].Primary)return false;
+  return true;
+ }
+
+ // Liest die Bildschirme neu ein, wenn sie sich geändert haben (z. B. Notebook an- oder abgedockt).
+ // Die Auswahl wird dann wieder aus der Verbindung gelesen. Rückgabe: true, wenn sich etwas geändert hat.
+ bool ReloadMonitors(bool report) {
+  if(!live||IsDisposed)return false;
+  var fresh=Monitors.Load();
+  if(fresh.Count==0||SameMonitors(fresh,monitors))return false;
+  IdentifyOverlay.CloseAll();
+  monitors.Clear();
+  monitors.AddRange(fresh);
+  map.Monitors=monitors;
+  LoadCurrent();
+  // eine Warnung zu fehlenden Bildschirmen (aus LoadCurrent) bleibt stehen
+  if(report&&info.Kind!=InfoKind.Warning)
+   Status("Die Bildschirme haben sich geändert ("+monitors.Count+" erkannt). Die Anzeige wurde neu eingelesen.",InfoKind.Info);
+  return true;
+ }
+
+ void OnDisplayChanged(object sender,EventArgs e) {
+  if(IsDisposed||!IsHandleCreated)return;
+  // Windows meldet eine Änderung oft mehrfach hintereinander: kurz warten, dann einmal einlesen
+  try {BeginInvoke(new Action(()=>{displayTimer.Stop();displayTimer.Start();}));} catch {}
+ }
+
+ // --- Ordner überwachen -----------------------------------------------------------------
+ void StartWatching() {
+  Microsoft.Win32.SystemEvents.DisplaySettingsChanged+=OnDisplayChanged;
+  try {
+   watcher=new FileSystemWatcher(folder,"*.rdp"){NotifyFilter=NotifyFilters.FileName,IncludeSubdirectories=false,SynchronizingObject=this};
+   FileSystemEventHandler changed=(s,e)=>{folderTimer.Stop();folderTimer.Start();};
+   watcher.Created+=changed;
+   watcher.Deleted+=changed;
+   watcher.Renamed+=(s,e)=>{folderTimer.Stop();folderTimer.Start();};
+   watcher.EnableRaisingEvents=true;
+  } catch {watcher=null;} // z. B. Laufwerk ohne Benachrichtigungen: F5 liest von Hand neu ein
+ }
+
+ bool InFolder(string path){return String.Equals(Path.GetDirectoryName(path),folder,StringComparison.OrdinalIgnoreCase);}
+
+ // Im Ordner sind .rdp-Dateien dazugekommen oder verschwunden: Liste neu aufbauen.
+ // Die gewählte Verbindung und eine noch nicht gespeicherte Monitorauswahl bleiben erhalten.
+ void FolderChanged() {
+  if(IsDisposed)return;
+  List<string> files;
+  try {files=Directory.GetFiles(folder,"*.rdp").Select(f=>Path.GetFullPath(f)).ToList();} catch {return;}
+  var known=paths.Where(p=>InFolder(p)).ToList();
+  if(files.Count==known.Count&&files.All(f=>known.Contains(f,StringComparer.OrdinalIgnoreCase)))return;
+  string cur=CurrentPath();
+  bool stays=cur!=null&&File.Exists(cur);
+  var keepSelection=map.Selection;
+  var keepMain=map.MainMonitor;
+  ReloadList(cur);
+  if(stays)map.SetSelection(keepSelection,keepMain);
+  Status("Der Ordner hat sich geändert: "+(paths.Count==1?"1 Verbindung":paths.Count+" Verbindungen")+" in der Liste.",InfoKind.Info);
+ }
+
+ // F5: Ordner und Bildschirme von Hand neu einlesen
+ protected override bool ProcessCmdKey(ref Message msg,Keys keyData) {
+  if(keyData==Keys.F5) {
+   ReloadMonitors(false);
+   ReloadList(CurrentPath());
+   if(info.Kind!=InfoKind.Warning&&info.Kind!=InfoKind.Error)
+    Status("Neu eingelesen: "+(paths.Count==1?"1 Verbindung":paths.Count+" Verbindungen")+", "+(monitors.Count==1?"1 Bildschirm":monitors.Count+" Bildschirme")+".",InfoKind.Info);
+   return true;
+  }
+  return base.ProcessCmdKey(ref msg,keyData);
+ }
+
+ protected override void Dispose(bool disposing) {
+  if(disposing) {
+   try {Microsoft.Win32.SystemEvents.DisplaySettingsChanged-=OnDisplayChanged;} catch {}
+   if(watcher!=null){try {watcher.EnableRaisingEvents=false;watcher.Dispose();} catch {} watcher=null;}
+   folderTimer.Dispose();
+   displayTimer.Dispose();
+   IdentifyOverlay.CloseAll();
+  }
+  base.Dispose(disposing);
+ }
+
+ // "Nur verbinden": vorher prüfen, ob die gespeicherten Bildschirme gerade vorhanden sind
+ void StartOnly() {
+  if(current==null)return;
+  ReloadMonitors(false);
+  if(current==null)return;
+  string missing=current.MissingMonitors(monitors);
+  if(missing!=null) {
+   var answer=MessageBox.Show(this,"„"+Path.GetFileNameWithoutExtension(current.Path)+"“ ist auf "+missing+".\n"+
+    "Die Sitzung startet dann auf einem anderen Bildschirm oder nicht auf allen gewünschten.\n\nTrotzdem verbinden?",
+    AppInfo.FullName,MessageBoxButtons.YesNo,MessageBoxIcon.Warning);
+   if(answer!=DialogResult.Yes)return;
+  }
+  Run("mstsc.exe",Quote(current.Path));
+ }
+
  void Run(string file,string args) {
   try {Process.Start(file,args);}
   catch(Exception ex){Status(file+" konnte nicht gestartet werden: "+ex.Message,InfoKind.Error);}
@@ -279,6 +394,7 @@ public class MainForm:Form {
  // Automatisch still kurz nach dem Start, höchstens alle 20 Stunden; nicht bei Vorschaubildern und Screenshots
  protected override void OnShown(EventArgs e) {
   base.OnShown(e);
+  if(live)StartWatching();
   if(UpdateCheck.Disabled||Demo.Active)return;
   UpdateSettings.Load();
   if(AfterUpdate) {
@@ -417,7 +533,7 @@ public class MainForm:Form {
   if(index<0) {
    paths.Add(full);
    string title=Path.GetFileNameWithoutExtension(full);
-   if(!String.Equals(Path.GetDirectoryName(full),folder,StringComparison.OrdinalIgnoreCase))title=title+"  ("+Path.GetDirectoryName(full)+")";
+   if(!InFolder(full))title=title+"  ("+Path.GetDirectoryName(full)+")";
    select.Items.Add(new ModernSelect.Item{Title=title,Detail=DescribeFile(full),Tag=full});
    index=paths.Count-1;
   }
@@ -426,10 +542,13 @@ public class MainForm:Form {
  }
 
  void ReloadList(string keep) {
+  // über "Andere Datei …" hinzugefügte Verbindungen aus anderen Ordnern bleiben in der Liste
+  var external=paths.Where(p=>!InFolder(p)&&File.Exists(p)).ToList();
   paths.Clear();select.Clear();
   try {
    foreach(string f in Directory.GetFiles(folder,"*.rdp").OrderBy(f=>Path.GetFileName(f),StringComparer.CurrentCultureIgnoreCase))AddPath(f,false);
   } catch(Exception ex){Status("Ordner konnte nicht gelesen werden: "+ex.Message,InfoKind.Error);}
+  foreach(string f in external)AddPath(f,false);
   if(keep!=null&&File.Exists(keep))AddPath(keep,true);
   else if(paths.Count>0)select.SelectedIndex=0;
   else LoadCurrent();
@@ -437,7 +556,7 @@ public class MainForm:Form {
  }
 
  void UpdateCount() {
-  int inFolder=paths.Count(p=>String.Equals(Path.GetDirectoryName(p),folder,StringComparison.OrdinalIgnoreCase));
+  int inFolder=paths.Count(p=>InFolder(p));
   connectionInfo.Text=inFolder==1?"1 Verbindung im Ordner":inFolder+" Verbindungen im Ordner";
  }
 
@@ -466,6 +585,10 @@ public class MainForm:Form {
    map.SetSelection(monitors.Where(m=>m.Primary));
   }
   UpdateState();
+  // Die Verbindung ist auf Bildschirme eingestellt, die es gerade nicht gibt (z. B. unterwegs ohne Dockingstation)
+  string missing=current!=null?current.MissingMonitors(monitors):null;
+  if(missing!=null)
+   Status("„"+Path.GetFileNameWithoutExtension(current.Path)+"“ ist auf "+missing+". Bildschirme neu auswählen und speichern – oder so lassen, bis sie wieder angeschlossen sind.",InfoKind.Warning);
  }
 
  // selectionChanged: Auswahl wurde geändert -> Infozeile immer neu schreiben
@@ -592,60 +715,20 @@ public class HelpSteps:Control {
 // Sehr dezenter Textlink (kaum sichtbar), z. B. für Support-Funktionen
 public class FaintLink:Control {
  bool hover;
- int rightInset;
- ModernButton alignButton;
  const TextFormatFlags Flags=TextFormatFlags.NoPrefix|TextFormatFlags.SingleLine|TextFormatFlags.NoPadding;
  public FaintLink(string text) {
   SetStyle(ControlStyles.UserPaint|ControlStyles.AllPaintingInWmPaint|ControlStyles.OptimizedDoubleBuffer|ControlStyles.ResizeRedraw,true);
   Text=text;Font=Ui.SmallFont;Cursor=Cursors.Hand;TabStop=false;Margin=new Padding(0);
-  rightInset=Ui.Px(14);
-  Size=new Size(TextRenderer.MeasureText(text,Font,Size.Empty,Flags).Width+Ui.Px(48),Ui.Px(24));
- }
- // Textende bündig mit dem sichtbaren Textende eines Knopfs darüber (gleiche rechte Kante vorausgesetzt).
- // Gemessen wird an den tatsächlich gezeichneten Pixeln, weil Textränder und Zeichen wie „…“ sonst versetzen.
- public void AlignTo(ModernButton button){alignButton=button;}
- void Align() {
-  var button=alignButton;alignButton=null;
-  try {
-   if(button.Width<=0||button.Height<=0)return;
-   int buttonGap;
-   using(var bmp=new Bitmap(button.Width,button.Height)) {
-    button.DrawToBitmap(bmp,new Rectangle(0,0,bmp.Width,bmp.Height));
-    int ink=InkRight(bmp);
-    if(ink<0)return;
-    buttonGap=bmp.Width-1-ink;
-   }
-   int bearing;
-   using(var bmp=new Bitmap(Width,Height))
-   using(var g=Graphics.FromImage(bmp)) {
-    g.Clear(Color.White);
-    TextRenderer.DrawText(g,Text,Font,new Rectangle(0,0,Width,Height),Color.Black,Flags|TextFormatFlags.Right|TextFormatFlags.VerticalCenter);
-    int ink=InkRight(bmp);
-    if(ink<0)return;
-    bearing=Width-1-ink;
-   }
-   rightInset=Math.Max(0,Math.Min(Width-Ui.Px(8),buttonGap-bearing));
-  } catch {}
- }
- static int InkRight(Bitmap bmp) {
-  Color bg=bmp.GetPixel(0,0);
-  for(int x=bmp.Width-1;x>=0;x--)
-   for(int y=0;y<bmp.Height;y++) {
-    Color c=bmp.GetPixel(x,y);
-    if(Math.Abs(c.R-bg.R)+Math.Abs(c.G-bg.G)+Math.Abs(c.B-bg.B)>60)return x;
-   }
-  return -1;
+  Size=new Size(TextRenderer.MeasureText(text,Font,Size.Empty,Flags).Width+Ui.Px(20),Ui.Px(24));
  }
  protected override void OnMouseEnter(EventArgs e){base.OnMouseEnter(e);hover=true;Invalidate();}
  protected override void OnMouseLeave(EventArgs e){base.OnMouseLeave(e);hover=false;Invalidate();}
  protected override void OnPaint(PaintEventArgs e) {
-  if(alignButton!=null)Align();
   Color back=Parent!=null?Parent.BackColor:Ui.Surface;
   e.Graphics.Clear(back);
   // Ruhezustand fast in Hintergrundfarbe, bei Mouseover etwas deutlicher
   Color fore=Ui.Blend(back,Ui.Muted,hover?0.6f:0.18f);
-  TextRenderer.DrawText(e.Graphics,Text,Font,new Rectangle(0,0,Width-rightInset,Height),fore,
-   Flags|TextFormatFlags.Right|TextFormatFlags.VerticalCenter);
+  TextRenderer.DrawText(e.Graphics,Text,Font,ClientRectangle,fore,Flags|TextFormatFlags.HorizontalCenter|TextFormatFlags.VerticalCenter);
  }
 }
 

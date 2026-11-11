@@ -50,6 +50,8 @@ The interface is in **German**.
 - **Monitor map** showing your screens in their real arrangement – click to select, click again to deselect
 - **One or several monitors:** full screen on one monitor, or spanning several monitors (`use multimon`, `selectedmonitors`)
 - **Main monitor** (taskbar and start menu of the remote session) chosen by right-click
+- **Identify:** briefly shows each screen's number on the screen itself
+- **Stays up to date:** detects changed screens (docking, undocking) and new or deleted connections in the folder, and warns when a connection is set to screens that are currently not attached
 - **Connection list** with all `.rdp` files from the program folder, including server and user; other files via file dialog or drag & drop
 - **Optional backup** of the original connection as `.rdp.bak`, restorable with one click
 - **Command line** for shortcuts and scripts
@@ -88,6 +90,8 @@ Einmal festlegen, auf welchem Bildschirm – oder auf welchen Bildschirmen – e
 - **Monitor-Karte** mit deinen Bildschirmen in ihrer echten Anordnung – anklicken wählt aus, erneuter Klick hebt die Auswahl auf
 - **Ein oder mehrere Monitore:** Vollbild auf einem Monitor oder über mehrere Monitore (`use multimon`, `selectedmonitors`)
 - **Hauptmonitor** (Taskleiste und Startmenü der Sitzung) per Rechtsklick festlegen
+- **Identifizieren:** blendet auf jedem Bildschirm kurz seine Nummer ein
+- **Bleibt aktuell:** erkennt geänderte Bildschirme (an- oder abgedockt) sowie neue oder gelöschte Verbindungen im Ordner und warnt, wenn eine Verbindung auf Bildschirme eingestellt ist, die gerade nicht angeschlossen sind
 - **Verbindungsliste** mit allen `.rdp`-Dateien aus dem Programmordner, jeweils mit Server und Benutzer; weitere Dateien per Dateiauswahl oder Drag & Drop
 - **Optionale Sicherung** der Originalverbindung als `.rdp.bak`, mit einem Klick wiederherstellbar
 - **Kommandozeile** für Verknüpfungen und Skripte

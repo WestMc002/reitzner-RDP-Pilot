@@ -219,6 +219,32 @@ public class RdpFile {
   return result;
  }
 
+ // Ist die Datei auf Bildschirme eingestellt, die es gerade nicht gibt (z. B. Notebook ohne Dockingstation)?
+ // Rückgabe: Satzteil für die Meldung ("… ist auf <Rückgabe>"), sonst null
+ public string MissingMonitors(IList<MonitorInfo> monitors) {
+  if(monitors==null||monitors.Count==0)return null;
+  if(Get("use multimon")=="1") {
+   string smon=Get("selectedmonitors");
+   if(String.IsNullOrEmpty(smon))return null; // alle Bildschirme
+   int missing=0;
+   foreach(string part in smon.Split(',')) {
+    int id;
+    if(Int32.TryParse(part.Trim(),out id)&&!monitors.Any(m=>m.Id==id))missing++;
+   }
+   if(missing==0)return null;
+   return missing==1?"einen Bildschirm eingestellt, der gerade nicht angeschlossen ist":missing+" Bildschirme eingestellt, die gerade nicht angeschlossen sind";
+  }
+  // Ein Monitor im Vollbild: Position laut winposstr
+  if(Get("screen mode id")!="2")return null;
+  string wp=Get("winposstr");
+  if(String.IsNullOrEmpty(wp))return null;
+  string[] p=wp.Split(',');
+  int x,y;
+  if(p.Length>=6&&Int32.TryParse(p[2].Trim(),out x)&&Int32.TryParse(p[3].Trim(),out y)&&!monitors.Any(m=>m.Bounds.Contains(x+10,y+10)))
+   return "einen Bildschirm eingestellt, der gerade nicht angeschlossen ist";
+  return null;
+ }
+
  public string Server {
   get {
    string address=Get("full address");

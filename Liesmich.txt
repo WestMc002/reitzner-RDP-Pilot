@@ -27,6 +27,13 @@ Die EXE liest alle .rdp-Dateien aus ihrem eigenen Ordner ein.
 Verbindung oben auswählen, Monitore in der Karte anklicken (mehrere möglich),
 dann "Speichern & verbinden" oder "Speichern".
 Weitere Dateien über "Andere Datei …" oder per Drag & Drop aufs Fenster.
+Neue oder gelöschte .rdp-Dateien im Ordner erscheinen von selbst in der Liste;
+F5 liest Ordner und Bildschirme von Hand neu ein.
+"Identifizieren" blendet auf jedem Bildschirm kurz groß seine Nummer ein.
+Ändern sich die Bildschirme, während das Programm läuft (z.B. Notebook an- oder
+abgedockt), liest es sie neu ein. Ist eine Verbindung auf Bildschirme eingestellt,
+die gerade nicht angeschlossen sind, warnt die Infozeile; "Nur verbinden" fragt
+dann vorher nach.
 Option "Sicherung erstellen" (standardmäßig aus): beim Speichern wird das
 Original als <Datei>.rdp.bak gesichert, sofern noch keine Sicherung existiert.
 "Original wiederherstellen" spielt sie zurück.
@@ -68,6 +75,11 @@ Gespeichert wird das unter %LOCALAPPDATA%\reitzner RDP Pilot\Einstellungen.ini.
 Ohne Internet bleibt alles wie gewohnt, es erscheint keine Fehlermeldung.
 
 Versionen
+1.35  Neu: "Identifizieren" zeigt auf jedem Bildschirm seine Nummer
+      Neu: geänderte Bildschirme und neue/gelöschte Verbindungen im Ordner werden
+      von selbst erkannt ("Aktualisieren" entfällt, F5 liest von Hand neu ein)
+      Neu: Warnung, wenn eine Verbindung auf Bildschirme eingestellt ist, die
+      gerade nicht angeschlossen sind
 1.34  Hinweise beim Überfahren mit der Maus (Tooltips) im Design des Programms
 1.31  Meldungen und Rückfragen im Design des Programms (hell/dunkel) statt im
       Windows-Standardfenster

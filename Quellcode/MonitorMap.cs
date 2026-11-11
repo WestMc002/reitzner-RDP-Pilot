@@ -28,7 +28,7 @@ public class MonitorMap:Control {
 
  public List<MonitorInfo> Monitors {
   get{return monitors;}
-  set{monitors=value??new List<MonitorInfo>();selected.Clear();Invalidate();}
+  set{monitors=value??new List<MonitorInfo>();selected.Clear();preferredMain=-1;hover=-1;focusNr=1;Invalidate();}
  }
 
  public List<MonitorInfo> Selection {
@@ -212,6 +212,91 @@ public class MonitorMap:Control {
 
 
  protected override void Dispose(bool disposing){if(disposing)tip.Dispose();base.Dispose(disposing);}
+}
+
+// Blendet kurz auf jedem Bildschirm groß seine Nummer ein (wie "Identifizieren" in den Windows-Anzeigeeinstellungen).
+// Randloses Overlay, nimmt keinen Fokus; ein Klick darauf oder der Ablauf der Zeit schließt alle.
+public class IdentifyOverlay:Form {
+ static readonly List<IdentifyOverlay> open=new List<IdentifyOverlay>();
+ static System.Windows.Forms.Timer timer;
+ readonly MonitorInfo monitor;
+ readonly bool selected;
+ Font numberFont,textFont;
+
+ public static void ShowAll(IList<MonitorInfo> monitors,IList<MonitorInfo> selection) {
+  CloseAll();
+  foreach(var m in monitors) {
+   try {
+    var overlay=new IdentifyOverlay(m,selection!=null&&selection.Contains(m));
+    open.Add(overlay);
+    overlay.Show();
+   } catch {}
+  }
+  timer=new System.Windows.Forms.Timer{Interval=3000};
+  timer.Tick+=(s,e)=>CloseAll();
+  timer.Start();
+ }
+
+ public static void CloseAll() {
+  if(timer!=null){timer.Stop();timer.Dispose();timer=null;}
+  var list=new List<IdentifyOverlay>(open);
+  open.Clear();
+  foreach(var overlay in list){try {overlay.Close();overlay.Dispose();} catch {}}
+ }
+
+ IdentifyOverlay(MonitorInfo monitor,bool selected) {
+  this.monitor=monitor;this.selected=selected;
+  FormBorderStyle=FormBorderStyle.None;ShowInTaskbar=false;StartPosition=FormStartPosition.Manual;
+  AutoScaleMode=AutoScaleMode.None;
+  SetStyle(ControlStyles.UserPaint|ControlStyles.AllPaintingInWmPaint|ControlStyles.OptimizedDoubleBuffer,true);
+  // Größe nach dem Bildschirm, damit die Nummer auf jedem Bildschirm gleich groß wirkt
+  var b=monitor.Bounds;
+  int h=Math.Max(140,Math.Min(b.Height/4,b.Width/5));
+  int w=h*4/3;
+  Bounds=new Rectangle(b.X+(b.Width-w)/2,b.Y+(b.Height-h)/2,w,h);
+  numberFont=new Font(Ui.NumberFont.FontFamily,h*0.5f,Ui.NumberFont.Style,GraphicsUnit.Pixel);
+  textFont=new Font("Segoe UI",Math.Max(12f,h*0.09f),FontStyle.Regular,GraphicsUnit.Pixel);
+  Cursor=Cursors.Hand;
+  Click+=(s,e)=>CloseAll();
+ }
+
+ protected override bool ShowWithoutActivation{get{return true;}}
+ protected override CreateParams CreateParams {
+  get {
+   var cp=base.CreateParams;
+   cp.ExStyle|=0x08000000|0x00000080|0x00000008; // WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW | WS_EX_TOPMOST
+   return cp;
+  }
+ }
+ protected override void OnHandleCreated(EventArgs e) {
+  base.OnHandleCreated(e);
+  if(Native.IsWindows11)Native.RoundCorners(Handle);
+ }
+
+ protected override void OnPaint(PaintEventArgs e) {
+  var g=e.Graphics;
+  Color back=selected?Ui.Primary:Ui.Surface;
+  Color fore=selected?Ui.OnPrimary:Ui.TextColor;
+  Color sub=selected?Ui.Blend(Ui.OnPrimary,Ui.Primary,0.25f):Ui.Muted;
+  g.Clear(back);
+  using(var pen=new Pen(selected?Ui.Primary:Ui.Border,2f)) g.DrawRectangle(pen,1,1,Width-2,Height-2);
+  var center=TextFormatFlags.HorizontalCenter|TextFormatFlags.NoPadding|TextFormatFlags.SingleLine|TextFormatFlags.NoPrefix;
+  string number=monitor.Nr.ToString();
+  string text=monitor.Bounds.Width+" x "+monitor.Bounds.Height+(selected?"  ·  ausgewählt":"");
+  Size ns=TextRenderer.MeasureText(g,number,numberFont,Size.Empty,center);
+  Size ts=TextRenderer.MeasureText(g,text,textFont,Size.Empty,center);
+  int y=(Height-ns.Height-ts.Height)/2;
+  TextRenderer.DrawText(g,number,numberFont,new Rectangle(0,y,Width,ns.Height),fore,center);
+  TextRenderer.DrawText(g,text,textFont,new Rectangle(0,y+ns.Height,Width,ts.Height),sub,center);
+ }
+
+ protected override void Dispose(bool disposing) {
+  if(disposing) {
+   if(numberFont!=null){numberFont.Dispose();numberFont=null;}
+   if(textFont!=null){textFont.Dispose();textFont=null;}
+  }
+  base.Dispose(disposing);
+ }
 }
 
 }
